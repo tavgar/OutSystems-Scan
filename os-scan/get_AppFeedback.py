@@ -1,5 +1,6 @@
 from colorama import Fore, Style
 import requests
+from requests.exceptions import TooManyRedirects
 import re
 import urllib3
 
@@ -17,8 +18,19 @@ def default_msg(environment):
 
 def check_ECTModule(environment,app_module_name,header):
     url_ECTProvider = environment+'/ECT_Provider/_osjs.js'
-    # Sending a GET request to the URL
-    response = requests.get(url_ECTProvider, headers=header, verify=False)
+    # Sending a GET request to the URL without automatically following redirects
+    try:
+        response = requests.get(
+            url_ECTProvider,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}ECT check aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
@@ -43,5 +55,17 @@ def check_ECTModule(environment,app_module_name,header):
             else:
                 print(f"| {Fore.WHITE}[|||] {Style.DIM}[App Feedback] The current version {version_string} of ECT Provider is not vulnerable.{Style.RESET_ALL}")
     else:
-        # Error in request
-        print(f"{Fore.RED}{Style.DIM}get_AppFeedback.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}")
+        # The request failed or was redirected
+        if response.status_code in (301, 302, 303, 307, 308):
+            redirect_to = response.headers.get("Location", "unknown")
+            print(
+                f"| {Fore.WHITE}Request redirected to: {Style.DIM}[{redirect_to}]{Style.RESET_ALL}"
+            )
+            print(
+                f"{Fore.RED}The ECT Provider endpoint redirected instead of returning data.{Style.RESET_ALL}"
+            )
+        else:
+            # Error in request
+            print(
+                f"{Fore.RED}{Style.DIM}get_AppFeedback.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}"
+            )

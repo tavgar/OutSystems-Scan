@@ -1,5 +1,6 @@
 from colorama import Fore, Style
 import requests
+from requests.exceptions import TooManyRedirects
 import re
 import urllib3
 
@@ -36,9 +37,20 @@ def get_roles_odc(response_text):
 
 def get_all_roles(environment,app_module_name,header):
 
-    # Sending a GET request to the URL
+    # Sending a GET request to the URL without following redirects
     url = environment+'/'+app_module_name+'/scripts/'+app_module_name+'.controller.js'
-    response = requests.get(url, headers=header, verify=False)
+    try:
+        response = requests.get(
+            url,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}Roles check aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
@@ -53,5 +65,17 @@ def get_all_roles(environment,app_module_name,header):
         else:
             print(f"| {Fore.WHITE}[|||] {Style.DIM}Unable to find roles for this application.{Style.RESET_ALL}")
     else:
-        # Error in request
-        print(f"{Fore.RED}{Style.DIM}get_Roles.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}")
+        # The request failed or was redirected
+        if response.status_code in (301, 302, 303, 307, 308):
+            redirect_to = response.headers.get("Location", "unknown")
+            print(
+                f"| {Fore.WHITE}Request redirected to: {Style.DIM}[{redirect_to}]{Style.RESET_ALL}"
+            )
+            print(
+                f"{Fore.RED}Roles endpoint redirected instead of returning data.{Style.RESET_ALL}"
+            )
+        else:
+            # Error in request
+            print(
+                f"{Fore.RED}{Style.DIM}get_Roles.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}"
+            )

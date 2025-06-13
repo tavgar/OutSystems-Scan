@@ -2,6 +2,7 @@ import argparse
 from urllib.parse import urlparse
 import urllib3
 from colorama import Fore, Style
+from requests.exceptions import TooManyRedirects
 import commons
 import requests
 import get_Screens
@@ -108,8 +109,19 @@ def exploit_modules(data,environment,app_module_name):
 
     get_EndScope.scan_completed()
     
-# Sending a GET request to the URL
-response = requests.get(module_informations_url, headers=header, verify=False)
+# Sending a GET request to the URL without following redirects
+try:
+    response = requests.get(
+        module_informations_url,
+        headers=header,
+        verify=False,
+        allow_redirects=False,
+    )
+except TooManyRedirects:
+    print(
+        f"{Fore.RED}[i] Module information request aborted due to too many redirects.{Style.RESET_ALL}"
+    )
+    exit()
 
 # Checking the response code
 if response.status_code == 200:
@@ -123,10 +135,14 @@ if response.status_code == 200:
     # Calling modules
     exploit_modules(data,environment,app_module_name)
 else:
-    # The request failed
+    # The request failed or was redirected
     if response.status_code == 403:
         print(f"{Fore.RED}[i] The target environment has blocked our access, but you can try to access the module information directly in the browser by accessing the url below:{Style.RESET_ALL}")
         print(f"{Fore.RED}[i] URL with module informations: {Fore.WHITE}{module_informations_url}{Style.RESET_ALL}")
+    elif response.status_code in (301, 302, 303, 307, 308):
+        redirect_to = response.headers.get("Location", "unknown")
+        print(f"{Fore.RED}[i] Request redirected to: {redirect_to}{Style.RESET_ALL}")
+        print(f"{Fore.RED}The module information endpoint redirected instead of returning data.{Style.RESET_ALL}")
 
 
     # Printing the response code and error message
