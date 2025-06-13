@@ -1,5 +1,6 @@
 from colorama import Fore, Style
 import requests
+from requests.exceptions import TooManyRedirects
 import get_RealAddress
 import urllib3
 
@@ -7,9 +8,20 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_app_definitions(environment,app_module_name,header):
 
-    # Sending a GET request to the URL
+    # Sending a GET request to the URL without following redirects
     url = environment+'/'+app_module_name+'/scripts/'+app_module_name+'.appDefinition.js'
-    response = requests.get(url, headers=header, verify=False)
+    try:
+        response = requests.get(
+            url,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}App definitions check aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
@@ -42,5 +54,17 @@ def get_app_definitions(environment,app_module_name,header):
         # Return
         return application_name
     else:
-        # Error in request
-        print(f"{Fore.RED}{Style.DIM}get_appdefinitions.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}")
+        # The request failed or was redirected
+        if response.status_code in (301, 302, 303, 307, 308):
+            redirect_to = response.headers.get("Location", "unknown")
+            print(
+                f"| {Fore.WHITE}Request redirected to: {Style.DIM}[{redirect_to}]{Style.RESET_ALL}"
+            )
+            print(
+                f"{Fore.RED}The app definitions script redirected instead of returning data.{Style.RESET_ALL}"
+            )
+        else:
+            # Error in request
+            print(
+                f"{Fore.RED}{Style.DIM}get_appdefinitions.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}"
+            )

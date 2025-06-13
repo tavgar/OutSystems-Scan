@@ -1,5 +1,6 @@
 from colorama import Fore, Style
 import requests
+from requests.exceptions import TooManyRedirects
 import re
 import exploits.check_CKEditor as check_CKEditor
 import exploits.check_FroalaEditor as check_FroalaEditor
@@ -40,9 +41,20 @@ def check_compromised_component(component_name,environment,app_module_name,heade
 
 def get_module_references(environment,app_module_name,header):
 
-    # Sending a GET request to the URL
+    # Sending a GET request to the URL without following redirects
     url = environment+'/'+app_module_name+'/scripts/'+app_module_name+'.referencesHealth.js'
-    response = requests.get(url, headers=header, verify=False)
+    try:
+        response = requests.get(
+            url,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}References check aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
@@ -70,5 +82,17 @@ def get_module_references(environment,app_module_name,header):
                 print(f"| {Fore.WHITE}[200] {Style.DIM}{module_name_filtered}{Style.RESET_ALL}")
             
     else:
-        # Error in request
-        print(f"{Fore.RED}{Style.DIM}get_modulesreferences.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}")
+        # The request failed or was redirected
+        if response.status_code in (301, 302, 303, 307, 308):
+            redirect_to = response.headers.get("Location", "unknown")
+            print(
+                f"| {Fore.WHITE}Request redirected to: {Style.DIM}[{redirect_to}]{Style.RESET_ALL}"
+            )
+            print(
+                f"{Fore.RED}The references script redirected instead of returning data.{Style.RESET_ALL}"
+            )
+        else:
+            # Error in request
+            print(
+                f"{Fore.RED}{Style.DIM}get_modulesreferences.py - Erro: {response.status_code} - {response.reason}{Style.RESET_ALL}"
+            )
