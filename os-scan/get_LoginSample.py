@@ -1,5 +1,6 @@
 from colorama import Fore, Style
 import requests
+from requests.exceptions import TooManyRedirects
 import re
 import urllib3
 
@@ -17,7 +18,18 @@ def get_LoginScreens(environment,header):
 def check_PhoneSampleScreen(environment,header):
     url_PhoneSample = environment+'/Template_PhoneSampleUserApp/scripts/Template_PhoneSampleUserApp.Common.Login.mvc.js'
     # Sending a GET request to the URL
-    response = requests.get(url_PhoneSample, headers=header, verify=False)
+    try:
+        response = requests.get(
+            url_PhoneSample,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}[|||] {Style.DIM}[Template_PhoneSample] Request aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
@@ -42,7 +54,18 @@ def check_PhoneSampleScreen(environment,header):
 def check_ReactiveSample(environment,header):
     url_ReactiveSample = environment+'/Template_ReactiveSampleUserApp/scripts/Template_ReactiveSampleUserApp.Common.Login.mvc.js'
     # Sending a GET request to the URL
-    response = requests.get(url_ReactiveSample, headers=header, verify=False)
+    try:
+        response = requests.get(
+            url_ReactiveSample,
+            headers=header,
+            verify=False,
+            allow_redirects=False,
+        )
+    except TooManyRedirects:
+        print(
+            f"| {Fore.WHITE}[|||] {Style.DIM}[Template_ReactiveSample] Request aborted due to too many redirects.{Style.RESET_ALL}"
+        )
+        return
 
     # Checking the response code
     if response.status_code == 200:
